@@ -1,0 +1,1 @@
+Modified versions of the raw data (e.g., tidying and processing, whether in R or manually) should be saved here.

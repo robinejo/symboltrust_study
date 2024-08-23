@@ -1,0 +1,4 @@
+This folder and its contents are a requirement of the psychDS standard.
+
+The rawest available form of your data goes in this folder. For example, if you download data from Qualtrics, put the downloaded file here. Other than perhaps removing personally identifying information, it should not be altered. Modified versions of the raw data (e.g., tidying and processing, whether in R or manually) should be saved in the 'processed' folder.
+

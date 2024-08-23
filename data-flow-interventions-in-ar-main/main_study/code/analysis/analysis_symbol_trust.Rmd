@@ -1,0 +1,89 @@
+---
+title: "Intervention in augmented reality"
+subtitle: "Analysis script for a preregistration"
+author: "Removed for anonymization"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(message=FALSE,
+                      warning=FALSE,
+                      cache.lazy=FALSE)
+```
+
+# Dependencies
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+# get data
+```{r}
+data_processed <- read_csv("../../data/processed/data_processed.csv")
+```
+
+# Demographics
+```{r}
+gender <- data_processed |>
+  count(gender)
+
+mean_age <- mean(data_processed$age, na.rm = TRUE)
+
+
+bedingung <- data_processed |>
+  count(bedingung)
+
+```
+
+# Statistics
+#### Evaluate H1 vs its complement with GORIC: ANOVA Example ####
+
+# Load libraries. 
+# These contain functions such as 'goric' that will be used in this R code. 
+# Each time you re-open this R file you have to execute this step.
+
+## First, install the packages, if you have not done this already:
+```{r}
+if (!require("psych")) install.packages("psych")
+if (!require("restriktor")) install.packages("restriktor")
+```
+
+## Then, load the packages:
+```{r}
+library(psych) # for the function describeBy
+library(restriktor) # for the goric function
+```
+
+# If you want to use restriktor from github:
+#if (!require("devtools")) install.packages("devtools")
+#library(devtools) 
+#install_github("LeonardV/restriktor")
+#library(restriktor) # for goric function
+
+################################################################################
+
+
+# Notably, it is only possible to load the data if you are using the correct 
+# working directory (with both your R script and data file). 
+# The command `getwd()` shows you your current working directory.
+#
+# You can change the working directory to the one you prefer using the function 
+# `setwd()` by specifying the correct location between parentheses. 
+# Alternatively, in Rstudio, you can use the "Session" tab (on top) or you can 
+# use the "Files"-pane (on top of probably the right lower box of Rstudio, this 
+# pane is located next to the panes for "Plots", "Packages", "Help", and "Viewer").
+
+
+```{r}
+
+```
+

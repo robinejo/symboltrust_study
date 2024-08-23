@@ -1,0 +1,504 @@
+---
+title: "Intervention in augmented reality"
+subtitle: "Analysis script for a preregistration"
+author: "Nele Borgert"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(message=FALSE,
+                      warning=FALSE,
+                      cache.lazy=FALSE)
+```
+
+# Dependencies
+
+```{r}
+# install JAGS: https://mcmc-jags.sourceforge.io/
+
+# package vector
+packages <- c("groundhog", "rjags", "runjags", "BEST", "coda")
+#"dplyr",
+
+# un-comment to install packages
+# for (i in 1:length(packages)){
+#   install.packages(packages[i], character.only = T)
+# }
+
+# load packages
+for (i in 1:length(packages)){
+  library(packages[i], character.only = T)
+}
+```
+
+# Reproducibility
+
+```{r}
+# un-comment to get R version
+# R.version
+# un-comment to set groundhog (i.e., run the code on the same versions as originally)
+# groundhog.library(packages, "2022-10-31")
+```
+
+# Robust Bayesian estimation for comparing two groups
+
+This analysis structure applies to the following hypotheses:
+- H1 = Trust: Is there an effect of trust on self-efficacy (A = D regarding self-efficacy)?
+- H2 = Self-efficacy vs. self-efficacy+trust: Is there a different effect of single vs multiple approach interventions on learning (A = D regarding learning)? Separate analysis for 
+(a) H2a - completion time
+(b) H2b - number of successful completions
+(c) H2c - number of clicks
+-> tested and self-reported knowledge?
+
+## Define a model for describing the data
+
+Descriptive distribution for data with outliers: t distribution
+
+## Specify the prior
+
+mu1 and m2: normal distribution
+sigma1 and sigma2: uniform distribution (noncommittal)
+nu: shifted exponential distribution
+
+## Generate random (pseudo-plausible) data
+
+### Control random sampling
+
+```{r}
+# always produce same values
+set.seed(100)
+```
+
+### Create variables
+
+```{r}
+# self-efficacy
+ya_se = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4)) # approx. t distribution
+yd_se = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+
+# learning I
+ya_learn_time = sample(x = 0:3600, size = 100, replace = T) # assumption max 60 minutes
+yd_learn_time = sample(x = 0:3600, size = 100, replace = T)
+ya_learn_compl = sample(x = 0:5, size = 100, replace = T)
+yd_learn_compl = sample(x = 0:5, size = 100, replace = T)
+ya_learn_click = sample(x = 0:6000, size = 100, replace = T) # assumption max 100 clicks per minute
+yd_learn_click = sample(x = 0:6000, size = 100, replace = T)
+```
+
+### Standardize DVs?? 
+
+To set reasonable ROPEs around d = 0.2
+
+```{r}
+# library(dplyr)
+ya_se <- scale(ya_se)
+yd_se <- scale(yd_se)
+```
+
+
+## Compute posterior distribution of parameters (MCMC)
+
+For μ, Normal(mean(y), 1000 * sd(y)); for σ, Uniform(sd(y)/1000, sd(y) * 1000); for ν, Exponential(1/29) + 1, with the constraint that nu >= 1. Here y = c(y1, y2).
+
+```{r}
+mcmcChain_h1 = BESTmcmc(ya_se, yd_se, priors = NULL, rnd.seed = 100)
+mcmcChain_h2a = BESTmcmc(ya_learn_time, yd_learn_time, priors = NULL, rnd.seed = 100)
+mcmcChain_h2b = BESTmcmc(ya_learn_compl, yd_learn_compl, priors = NULL, rnd.seed = 100)
+mcmcChain_h2c = BESTmcmc(ya_learn_click, yd_learn_click, priors = NULL, rnd.seed = 100)
+```
+
+## Compute chain diagnostics
+
+2 convergence diagnostics:
+- Rhat (reduction factor, which is 1 on convergence. <1.1 acceptable. otherwise increase the burnInSteps argument to BESTmcmc if Rhat too big)
+- n.eff (effective sample size, values around 10.000 needed for stable estimation of 95% CI. if value to small, increase numSavedSteps or thinSteps arguments to BESTmcmc)
+
+```{r}
+# Rhat and n.eff
+print(mcmcChain_h1)
+```
+
+What about checking caterpillar plots for each?
+
+## Plot results and visual posterior predictive checks
+
+Histograms of parameter values. Adjust ROPEs (for m, sd, and eff).
+Posterior predictive distributions compared with original data (top right panels).
+
+```{r}
+# Histograms of parameter values from the posterior distribution (jointly credible combinations given the data)
+plotAll(mcmcChain_h1)
+plotAll(mcmcChain_h2a)
+plotAll(mcmcChain_h2b)
+plotAll(mcmcChain_h2c)
+```
+
+## Summarize results
+
+Adjust ROPEs (for m, sd, and eff).
+
+```{r}
+summary(mcmcChain_h1)
+summary(mcmcChain_h2a)
+summary(mcmcChain_h2b)
+summary(mcmcChain_h2c)
+```
+
+
+# Robust Bayesian estimation for comparing multiple groups
+
+This analysis structure applies to the following manipulation checks and hypotheses:
+- M1 = Self-efficacy: Is self-efficacy higher in the self-efficacy manipulation conditions than in the control group (A|B|C|D > CG regarding self-efficacy)?
+- M2 = Trust: Is trust self-report and reaction time lower in the trust manipulation condition than in the self-efficacy manipulation conditions (D < A|B|C regarding trust and reaction time)?
+- H3 = Additive self-efficacy: Is there an additive self-efficacy effect (C|B > A regarding self-efficacy)?
+- H4 = Learning: Do participants learn something compared to a control group (A|B|C|D > CG regarding learning)?
+(a) tested knowledge
+(b) self-reported knowledge
+
+## Define a model for describing the data
+
+Descriptive distribution for data with outliers: t distribution
+
+## Specify the prior
+
+mu_i: t distribution
+nu: shifted exponential distribution
+sigma_ji (within-group parameter): gamma distribution 
+omega (mode): gamma distribution - set to constant so that each group's scale is estimated separately
+sigma_sigma (SD): gamma distribution - set to constant so that each group's scale is estimated separately
+beta_0 (baseline parameter): normal distribution
+beta_j (group deflection parameter): normal distribution + mean = 0 (sum-to-zero constraint)
+sigma_beta (between-group parameter): folded-t distribution - heavy-tailed to address or set to a large constant? Because many treatment groups vs one control group (small variance between the EG make estimate small causing excessive shrinkage/reduction of the estimated deflection of the CG)
+
+For, mode = sd(y)/2; for standard deviation = 2*sd(y).
+
+Allow diff variance in each group? sigma_j is implemented, isn't it? 
+
+## Generate random (pseudo-plausible) data
+
+### Control random sampling
+
+```{r}
+# always produce same values
+set.seed(100)
+```
+
+### Create variables and make them long-formated
+
+```{r}
+# groups
+group_5 <- c("A", "B", "C", "D","CG")
+group_5 <- rep(group_5, each = 100)
+group_4 <- c("A", "B", "C", "D")
+group_4 <- rep(group_4, each = 100)
+
+# self-efficacy (cont.)
+yb_se = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4)) # approx. t distribution
+yc_se = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+ycg_se = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+se_data <- data.frame(ya_se,yb_se,yc_se,yd_se,ycg_se)
+se_data <- data.frame(x=unlist(se_data))
+se_data$group_5 <- group_5
+
+# trust
+ya_trust_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4)) # approx. t distribution
+yb_trust_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+yc_trust_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+yd_trust_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+trust_sr_data <- data.frame(ya_trust_sr,yb_trust_sr,yc_trust_sr,yd_trust_sr)
+trust_sr_data <- data.frame(x=unlist(trust_sr_data))
+trust_sr_data$group_4 <- group_4
+
+ya_trust_time = sample(x = 0:3600, size = 100, replace = T) # assumption max 60 minutes
+yb_trust_time = sample(x = 0:3600, size = 100, replace = T)
+yc_trust_time = sample(x = 0:3600, size = 100, replace = T)
+yd_trust_time = sample(x = 0:3600, size = 100, replace = T)
+trust_time_data <- data.frame(ya_trust_time,yb_trust_time,yc_trust_time,yd_trust_time)
+trust_time_data <- data.frame(x=unlist(trust_time_data))
+trust_time_data$group_4 <- group_4
+
+# learning II
+ya_know_test = sample(x = 0:10, size = 100, replace = T) # assumption max 10 test items
+yb_know_test = sample(x = 0:10, size = 100, replace = T)
+yc_know_test = sample(x = 0:10, size = 100, replace = T)
+yd_know_test = sample(x = 0:10, size = 100, replace = T)
+ycg_know_test = sample(x = 0:10, size = 100, replace = T)
+know_test_data <- data.frame(ya_know_test,yb_know_test,yc_know_test,yd_know_test,ycg_know_test)
+know_test_data <- data.frame(x=unlist(know_test_data))
+know_test_data$group_5 <- group_5
+
+ya_know_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4)) # approx. t distribution
+yb_know_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+yc_know_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+yd_know_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+ycg_know_sr = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+know_sr_data <- data.frame(ya_know_sr,yb_know_sr,yc_know_sr,yd_know_sr,ycg_know_sr)
+know_sr_data <- data.frame(x=unlist(know_sr_data))
+know_sr_data$group_5 <- group_5
+```
+
+## Specify contrasts of means
+
+```{r}
+# component list for se
+contrasts_se = list(
+  list(c("A", "B", "C", "D"), c("CG"), compVal=0.0, ROPE=c(-1.5, 1.5)), #e.g. +- 1.5 days ->meaningful diff in SE?
+  list(c("B","C"), c("A"), compVal=0.0, ROPE=c(-1.5, 1.5))
+)
+
+# component list for trust_sr
+contrasts_trust_sr = list(c("A", "B", "C"), c("D"), compVal=0.0, ROPE=c(-1.5, 1.5)) #e.g. +- 1.5 days ->meaningful diff in trust?
+
+# component list for trust_time
+contrasts_trust_time = list(c("A", "B", "C"), c("D"), compVal=0.0, ROPE=c(-1.5, 1.5)) #e.g. +- 1.5 days ->meaningful diff in reaction time?
+
+# component list for know_test
+contrasts_know_test = list(c("A", "B", "C", "D"), c("CG"), compVal=0.0, ROPE=c(-1.5, 1.5)) #e.g. +- 1.5 days ->meaningful diff in tested knowledge score?
+
+# component list for know_sr
+contrasts_know_sr = list(c("A", "B", "C", "D"), c("CG"), compVal=0.0, ROPE=c(-1.5, 1.5)) #e.g. +- 1.5 days ->meaningful diff in self-reported knowledge?
+```
+
+List supplied as an argument to the functions that compute summary statistics and plots of the posterior distribution 
+
+## Load functions
+
+```{r}
+source("../jags/Jags-Ymet-Xnom1fac-MrobustHet.R")
+```
+
+## Specify the model
+
+JAGS model statement in "Jags-Ymet-Xnom1fac-MrobustHet.R" file.
+
+## Generate MCMC chain
+
+And create list structure of data for JAGS. Names need to match model definition.
+
+```{r}
+# specify data frame: see above
+# specify contrasts: see above
+# specify y for all models
+yName="x" 
+# specify format for saving output
+graphFileType = "jpeg"
+
+# se
+xName="group_5" 
+fileNameRoot = "../results/se/" # Specify filename root
+mcmcCoda_se = genMCMC(datFrm=se_data, yName=yName, xName=xName,
+                      numSavedSteps=11000, thinSteps=20, saveName=fileNameRoot)
+
+# trust_sr
+xName="group_4" 
+fileNameRoot = "../results/trust_sr/" # Specify filename root 
+mcmcCoda_trust_sr = genMCMC(datFrm=trust_sr_data, yName=yName, xName=xName,
+                      numSavedSteps=11000, thinSteps=20, saveName=fileNameRoot)
+
+# trust_time
+xName="group_4" 
+fileNameRoot = "../results/trust_time/" # Specify filename root 
+mcmcCoda_trust_time = genMCMC(datFrm=trust_time_data, yName=yName, xName=xName,
+                      numSavedSteps=11000, thinSteps=20, saveName=fileNameRoot)
+
+# know_test
+xName="group_5" 
+fileNameRoot = "../results/know_test/" # Specify filename root 
+mcmcCoda_know_test = genMCMC(datFrm=know_test_data, yName=yName, xName=xName,
+                      numSavedSteps=11000, thinSteps=20, saveName=fileNameRoot)
+
+# know_sr
+xName="group_5" 
+fileNameRoot = "../results/know_sr/" # Specify filename root 
+mcmcCoda_know_sr = genMCMC(datFrm=know_sr_data, yName=yName, xName=xName,
+                      numSavedSteps=11000, thinSteps=20, saveName=fileNameRoot)
+```
+
+## Display diagnostics of chain, for specified parameters
+
+```{r}
+# se
+parameterNames = varnames(mcmcCoda_se) 
+show(parameterNames) # show all parameter names, for reference
+fileNameRoot = "../results/se/" 
+for (parName in c("aSigma","b0","b[1]","ySigma[1]", "nu","ySigmaMode","ySigmaSD")){
+  diagMCMC(codaObject=mcmcCoda_se, parName=parName,
+           saveName=fileNameRoot, saveType=graphFileType)
+} 
+
+# trust_sr
+parameterNames = varnames(mcmcCoda_trust_sr) 
+show(parameterNames) # show all parameter names, for reference
+fileNameRoot = "../results/trust_sr/" 
+for (parName in c("aSigma","b0","b[1]","ySigma[1]", "nu","ySigmaMode","ySigmaSD")){
+  diagMCMC(codaObject=mcmcCoda_trust_sr, parName=parName,
+           saveName=fileNameRoot, saveType=graphFileType)
+} 
+
+# trust_time
+parameterNames = varnames(mcmcCoda_trust_time) 
+show(parameterNames) # show all parameter names, for reference
+fileNameRoot = "../results/trust_time/" 
+for (parName in c("aSigma","b0","b[1]","ySigma[1]", "nu","ySigmaMode","ySigmaSD")){
+  diagMCMC(codaObject=mcmcCoda_trust_time, parName=parName,
+           saveName=fileNameRoot, saveType=graphFileType)
+} 
+
+# know_test
+parameterNames = varnames(mcmcCoda_know_test) 
+show(parameterNames) # show all parameter names, for reference
+fileNameRoot = "../results/know_test/" 
+for (parName in c("aSigma","b0","b[1]","ySigma[1]", "nu","ySigmaMode","ySigmaSD")){
+  diagMCMC(codaObject=mcmcCoda_know_test, parName=parName,
+           saveName=fileNameRoot, saveType=graphFileType)
+} 
+
+# know_sr
+parameterNames = varnames(mcmcCoda_know_sr) 
+show(parameterNames) # show all parameter names, for reference
+fileNameRoot = "../results/know_sr/" 
+for (parName in c("aSigma","b0","b[1]","ySigma[1]", "nu","ySigmaMode","ySigmaSD")){
+  diagMCMC(codaObject=mcmcCoda_know_sr, parName=parName,
+           saveName=fileNameRoot, saveType=graphFileType)
+} 
+```
+
+## Get summary statistics of chain:
+
+```{r}
+# se
+xName="group_5" 
+fileNameRoot = "../results/se/" 
+summaryInfo_se = smryMCMC(mcmcCoda_se,
+                       datFrm=se_data, xName=xName,
+                       contrasts=contrasts_se,
+                       saveName=fileNameRoot)
+show(summaryInfo_se)
+
+# trust_sr
+xName="group_4" 
+fileNameRoot = "../results/trust_sr/" 
+summaryInfo_trust_sr = smryMCMC(mcmcCoda_trust_sr,
+                       datFrm=trust_sr_data, xName=xName,
+                       contrasts=contrasts_trust_sr,
+                       saveName=fileNameRoot)
+show(summaryInfo_trust_sr)
+
+# trust_time
+xName="group_4" 
+fileNameRoot = "../results/trust_time/" 
+summaryInfo_trust_time = smryMCMC(mcmcCoda_trust_time,
+                       datFrm=trust_time_data, xName=xName,
+                       contrasts=contrasts_trust_time,
+                       saveName=fileNameRoot)
+show(summaryInfo_trust_time)
+
+# know_test
+xName="group_5" 
+fileNameRoot = "../results/know_test/" 
+summaryInfo_know_test = smryMCMC(mcmcCoda_know_test,
+                       datFrm=know_test_data, xName=xName,
+                       contrasts=contrasts_know_test,
+                       saveName=fileNameRoot)
+show(summaryInfo_know_test)
+
+# know_sr
+xName="group_5" 
+fileNameRoot = "../results/know_sr/" 
+summaryInfo_know_sr = smryMCMC(mcmcCoda_know_sr,
+                       datFrm=know_sr_data, xName=xName,
+                       contrasts=contrasts_know_sr,
+                       saveName=fileNameRoot)
+show(summaryInfo_know_sr)
+```
+
+## Plot results
+
+```{r}
+# se
+xName="group_5" 
+fileNameRoot = "../results/se/"
+plotMCMC(mcmcCoda_se,
+         datFrm=se_data, yName=yName, xName=xName,
+         contrasts=contrasts_se,
+         saveName=fileNameRoot, saveType=graphFileType)
+
+# trust_sr
+xName="group_4" 
+fileNameRoot = "../results/trust_sr/" 
+plotMCMC(mcmcCoda_trust_sr,
+         datFrm=trust_sr_data, yName=yName, xName=xName,
+         contrasts=contrasts_trust_sr,
+         saveName=fileNameRoot, saveType=graphFileType)
+
+# trust_time
+xName="group_4" 
+fileNameRoot = "../results/trust_time/" 
+plotMCMC(mcmcCoda_trust_time,
+         datFrm=se_trust_time, yName=yName, xName=xName,
+         contrasts=contrasts_trust_time,
+         saveName=fileNameRoot, saveType=graphFileType)
+
+# know_test
+xName="group_5" 
+fileNameRoot = "../results/know_test/" 
+plotMCMC(mcmcCoda_know_test,
+         datFrm=know_test_data, yName=yName, xName=xName,
+         contrasts=contrasts_know_test,
+         saveName=fileNameRoot, saveType=graphFileType)
+
+# know_sr
+xName="group_5" 
+fileNameRoot = "../results/know_sr/" 
+plotMCMC(mcmcCoda_know_sr,
+         datFrm=know_sr_data, yName=yName, xName=xName,
+         contrasts=contrasts_know_sr,
+         saveName=fileNameRoot, saveType=graphFileType)
+```
+
+
+## Compute contrasts of scales
+
+Create contrasts of scales (sigma_j) after running the mcmcCoda = genMCMC() with sigma1 - simga2.
+
+```{r}
+# se
+mcmcMat_se = as.matrix(mcmcCoda_se) # convert coda object to a matrix 
+openGraph() # open a new graphics window 
+plotPost(mcmcMat_se[,"ySigma[1]"] - mcmcMat_se[,"ySigma[2]"], main=expression(sigma[1]-sigma[2]),
+         xlab="Difference", cex.main=2)
+
+# trust_sr
+mcmcMat_trust_sr = as.matrix(mcmcCoda_trust_sr) # convert coda object to a matrix 
+openGraph() # open a new graphics window 
+plotPost(mcmcMat_trust_sr[,"ySigma[1]"] - mcmcMat_trust_sr[,"ySigma[2]"], main=expression(sigma[1]-sigma[2]),
+         xlab="Difference", cex.main=2)
+
+# trust_time
+mcmcMat_trust_time = as.matrix(mcmcCoda_trust_time) # convert coda object to a matrix 
+openGraph() # open a new graphics window 
+plotPost(mcmcMat_trust_time[,"ySigma[1]"] - mcmcMat_trust_time[,"ySigma[2]"], main=expression(sigma[1]-sigma[2]),
+         xlab="Difference", cex.main=2)
+
+# know_test
+mcmcMat_know_test = as.matrix(mcmcCoda_know_test) # convert coda object to a matrix 
+openGraph() # open a new graphics window 
+plotPost(mcmcMat_know_test[,"ySigma[1]"] - mcmcMat_know_test[,"ySigma[2]"], main=expression(sigma[1]-sigma[2]),
+         xlab="Difference", cex.main=2)
+
+# know_sr
+mcmcMat_know_sr = as.matrix(mcmcCoda_know_sr) # convert coda object to a matrix 
+openGraph() # open a new graphics window 
+plotPost(mcmcMat_know_sr[,"ySigma[1]"] - mcmcMat_know_sr[,"ySigma[2]"], main=expression(sigma[1]-sigma[2]),
+         xlab="Difference", cex.main=2)
+```
+
+
+

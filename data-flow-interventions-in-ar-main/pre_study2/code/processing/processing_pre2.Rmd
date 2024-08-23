@@ -1,0 +1,124 @@
+---
+title: "Intervention in augmented reality"
+subtitle: "Processing script for pre-study 2"
+author: "Nele Borgert"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(message=FALSE,
+                      warning=FALSE,
+                      cache.lazy=FALSE)
+```
+
+# Dependencies
+
+```{r}
+# package vector
+packages <- c("dplyr", "readxl")
+
+# un-comment to install packages
+# for (i in 1:length(packages)){install.packages(packages[i], character.only = T)
+# }
+
+# load packages
+for (i in 1:length(packages)){
+  library(packages[i], character.only = T)
+}
+```
+
+# Reproducibility
+
+```{r}
+# un-comment to get R version
+# R.version
+# un-comment to set groundhog (i.e., run the code on the same versions as originally)
+# groundhog.library(packages, "2022-10-31")
+```
+
+# Load data
+
+```{r}
+data_pre2 <- read.csv2("../../data/processed_data_pre2.csv", header = T, sep = ",")
+# bug; can only see 1:50 variables
+data_pre2 |> dplyr::select(51:88) |> View()
+
+data_pre2_text <- read_xlsx("../../data/data_pre2_text.xlsx")
+```
+
+
+# Clean data
+
+```{r}
+# exclude headers
+data_pre2 <-data_pre2[-c(1,2),]
+data_pre2_text <- data_pre2_text[-1,]
+
+# as numeric
+numeric_data <- sapply(data_pre2, as.numeric)
+numeric_data <- as.data.frame(numeric_data)
+
+table(data_pre2$test_know8)
+# exclude if one or more attention check fails
+# attention check 1: participants must have answered with 1 to be included in analyses 
+# attention check 2: participants must have answered with 5 to be included in analyses
+# attention check 3: participants must have answered with 1 to be included in analyses
+numeric_data <- subset(numeric_data, ac1==1 & ac2==5 & ac3==1) # deletes row 3
+
+# drop row 3 in text-based data set as well
+text_data <- data_pre2_text[-3,]
+```
+
+
+# Scale evaluation
+
+## SE 
+```{r}
+# exclude if se_intro2 == 4; no I do not have a SMD 
+se_data <- subset(numeric_data, se_intro2 ==5)
+
+# se scale data
+se_data <- se_data[,c(74:88)]
+se_data <- se_data[,-c(5,10,15)] # exclude comments
+
+# se scale variable
+se_data$se_mean <- rowMeans(se_data)
+```
+
+## Tested Knowledge
+```{r}
+# tested knwoledge scale data
+test_know_data <- text_data[,c(24:36)]
+test_know_data <- test_know_data[,-c(5,10)] # exclude comments
+test_know_answers <- test_know_data
+
+table(test_know_answers$test_know8) 
+# create vector with correct answers
+correct <- c("r,r,r", "r,r", "r", "r", "r,r", "r", "r", "r,r", "r,r", "r,r", "r,r")
+
+# recode correct answers as 1, incorrect answer as 0
+for (i in 1:ncol(test_know_data)) {
+  test_know_data[, i] <- 
+    ifelse(test_know_data[ ,i] == correct[i], test_know_data[,i] <- 1, test_know_data[, i] <- 0)}
+
+colMeans(test_know_data)
+
+# tested knowledge scale variable
+test_know_data$test_know_mean <- rowMeans(test_know_data)
+```
+
+## Perceived Knowledge 
+```{r}
+# perceived knowledge data
+per_know_data <-  numeric_data[,c(21:22)]
+
+# perceived knowledge scale variable
+per_know_data$per_know_mean <- rowMeans(per_know_data)
+```

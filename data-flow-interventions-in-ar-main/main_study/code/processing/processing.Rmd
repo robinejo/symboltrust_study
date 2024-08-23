@@ -1,0 +1,83 @@
+---
+title: "Untitled"
+author: "complab"
+date: "2024-08-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#dependencies
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+#load data
+```{r}
+data_raw <- read_csv("../../data/raw/AR+Intervention+Main+Study_August+8,+2024_14.54.csv")
+```
+```{r}
+data_after_exclusions <- data_raw |>
+  mutate(unique_id = row_number()) |>
+  select("unique_id", "Finished", "ac1", "ac2", "ac3", "bedingung","codeword", "gender", "age", starts_with("sy"), starts_with("anmerkung")) |>
+  filter(!str_detect(codeword, regex("test", ignore_case = TRUE))) |> #exculding all test trials and all NAs
+  filter(!if_any(starts_with("sy"), ~ . == "-99")) |>
+  filter(ac1 == 1) |>
+  filter(ac2 == 5) |>
+  filter(ac3 == 1) |>
+  filter(!str_detect(anmerkung_sonstiges_2_TEXT, regex("probedurchlauf", ignore_case = TRUE))) |>
+  filter(!str_detect(anmerkung_sonstiges_2_TEXT, regex("testlauf", ignore_case = TRUE))) |>
+  filter(!str_detect(anmerkung_sonstiges_2_TEXT, regex("ausschliessen", ignore_case = TRUE))) |>
+  filter(unique_id != 358) #anmerkug_nachfrage_2_TEXT. Weitergeklickt bei Fragebogen
+  
+```
+
+```{r}
+data_processed_with_means <- data_after_exclusions |>
+mutate(sys_trust1 = as.numeric(sys_trust1),
+       sys_trust2 = as.numeric(sys_trust2),
+       sys_trust3 = as.numeric(sys_trust3),
+       sys_trust4 = as.numeric(sys_trust4),
+       sys_trust5 = as.numeric(sys_trust5),
+       sys_trust6 = as.numeric(sys_trust6),
+       sys_trust7 = as.numeric(sys_trust7),
+       sys_trust8 = as.numeric(sys_trust8),
+       sys_trust9 = as.numeric(sys_trust9),
+       sys_trust10 = as.numeric(sys_trust10),
+       sys_trust11 = as.numeric(sys_trust11),
+       sys_trust12 = as.numeric(sys_trust12)) |>
+  mutate(symb_trust1 = as.numeric(symb_trust1),
+         symb_trust2 = as.numeric(symb_trust2),
+         symb_trust3 = as.numeric(symb_trust3),
+         symb_trust4 = as.numeric(symb_trust4),
+         symb_trust5 = as.numeric(symb_trust5)) |>
+  mutate(mean_sys_trust = rowMeans(across(starts_with("sys_trust")), na.rm = TRUE),
+         mean_symb_trust = rowMeans(across(starts_with("symb_trust")), na.rm = TRUE))
+
+data_processed <- data_processed_with_means |>
+   select(-starts_with("anmerkung"), -ends_with("DO")) |>
+  mutate(gender =  case_when(gender == "1" ~ "männlich",
+                            gender == "2" ~ "weiblich",
+                            gender == "3" ~ "non-binär/divers",
+                            gender == "4" ~ "keine Angabe",
+                            TRUE ~ "not indicated")) |>
+   mutate(age = as.numeric(age))
+
+
+
+data_processed_with_means |>
+  count(bedingung)
+```
+
+```{r}
+# in case this dir doesn't exist, create it
+dir.create("../data/processed/")
+
+
+write_csv(data_processed, "../../data/processed/data_processed.csv")
+```
+
+

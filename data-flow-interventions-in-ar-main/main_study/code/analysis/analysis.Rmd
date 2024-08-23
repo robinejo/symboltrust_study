@@ -1,0 +1,346 @@
+---
+title: "Intervention in augmented reality"
+subtitle: "Analysis script for a preregistration"
+author: "Removed for anonymization"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(message=FALSE,
+                      warning=FALSE,
+                      cache.lazy=FALSE)
+```
+
+# Dependencies
+
+```{r}
+# install JAGS: https://mcmc-jags.sourceforge.io/
+# package vector
+packages <- c("groundhog", "BEST", "emmeans", "nortest","car", "boot", "multcomp", "ggplot2")
+
+# un-comment to install packages
+# for (i in 1:length(packages)){install.packages(packages[i], character.only = T)
+# }
+
+# load packages
+for (i in 1:length(packages)){
+  library(packages[i], character.only = T)
+}
+
+# color choice
+# red: #FF0000
+# blue: #87CEEB
+# grey: #999999
+```
+
+# Reproducibility
+
+```{r}
+# un-comment to get R version
+# R.version
+# un-comment to set groundhog (i.e., run the code on the same versions as originally)
+# groundhog.library(packages, "2022-10-31")
+```
+
+# Robust Bayesian estimation for comparing two groups
+
+This analysis structure is applied to test pretest sensitization.
+
+## Define a model for describing the data
+
+Descriptive distribution for data with outliers: t distribution
+
+## Specify the prior
+
+mu1 and m2: normal distribution
+sigma1 and sigma2: uniform distribution (noncommittal)
+nu: shifted exponential distribution
+
+## Generate random (pseudo-plausible) data
+
+### Control random sampling
+
+```{r}
+# always produce same values
+set.seed(100)
+```
+
+### Create variables
+
+```{r}
+# self-efficacy
+ya_se = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4)) # approx. t distribution
+ycg_se = sample(x = 1:7, size = 100, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+```
+
+## Compute posterior distribution of parameters (MCMC)
+
+For μ, Normal(mean(y), 1000 * sd(y)); for σ, Uniform(sd(y)/1000, sd(y) * 1000); for ν, Exponential(1/29) + 1, with the constraint that nu >= 1. Here y = c(y1, y2).
+
+```{r}
+mcmcChain_h1 = BESTmcmc(ya_se, ycg_se, priors = NULL, rnd.seed = 100)
+```
+
+## Compute chain diagnostics
+
+2 convergence diagnostics:
+- Rhat (reduction factor, which is 1 on convergence. <1.1 acceptable. otherwise increase the burnInSteps argument to BESTmcmc if Rhat too big)
+- n.eff (effective sample size, values around 10.000 needed for stable estimation of 95% CI. if value to small, increase numSavedSteps or thinSteps arguments to BESTmcmc)
+
+```{r}
+# Rhat and n.eff
+print(mcmcChain_h1)
+```
+
+What about checking caterpillar plots for each?
+
+## Plot results and visual posterior predictive checks
+
+Histograms of parameter values from the posterior distribution (jointly credible combinations given the data).
+Posterior predictive distributions compared with original data (top right panels).
+
+```{r}
+# ROPE: +-0.42 (see precision script)
+plotAll(mcmcChain_h1, ROPEeff = c(-0.42,0.42))
+```
+
+## Summarize results
+
+```{r}
+summary(mcmcChain_h1, ROPEeff = c(-0.42,0.42))
+```
+
+
+# Regression model (covariance analysis)
+
+This analysis structure is applied to test
+- additive self-efficacy effect (C and B > A)
+- restricted self-efficacy effect (C > B)
+- effect of trust on self-efficacy (D > A)
+
+## Create variables
+
+```{r}
+# variables
+pre_se <- sample(x = 1:7, size = 400, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+post_se <- sample(x = 1:7, size = 400, replace = T, prob = dt(x = c(1,2,3,4,5,6,7), df = 30, ncp = 4))
+group_4 <- c("A", "B", "C", "D")
+group <- rep(group_4, each = 100)
+# data frame
+se_regression_data <- data.frame(group, pre_se, post_se)
+```
+
+## Dummy coding
+
+```{r}
+# ensure as factors
+se_regression_data$group <- as.factor(se_regression_data$group)
+# check coding (A as reference category)
+contrasts(se_regression_data$group)
+```
+
+## Center covariate variable
+
+```{r}
+# center covariate, not standardize (scale = F)
+se_regression_data$pre_se <- as.numeric(scale(se_regression_data$pre_se, scale = F))
+```
+
+## Contrasts coding
+
+```{r}
+# matrix
+## constant: intercept corresponds to the mean of group means
+se_mat <- matrix(c(1/4, 1/4, 1/4, 1/4, 
+                   -1, 0.5, 0.5, 0, # additive self-efficacy effect (B and C > A)
+                   0, -1, 1, 0, # restricted self-efficacy effect (C > B)
+                   -1, 0, 0, 1), ncol = 4) # effect of trust on self-efficacy (D > A)
+se_mat
+
+# inverse
+se_mat_inv <- solve(t(se_mat))
+se_mat_inv
+# drop first column / intercept / constant term
+se_mat_inv <- se_mat_inv[,-1]
+se_mat_inv
+
+# as group contrasts
+contrasts(se_regression_data$group) <- se_mat_inv
+```
+
+## Estimate linear model
+
+```{r}
+se_model <- lm(post_se ~ group + pre_se,
+               data = se_regression_data)
+summary(se_model)
+
+# interpretation: controlled for pre_se...
+## intercept: mean of group means
+## group1: difference in mean between a and the mean of b and c
+## group2: difference in mean between c and b
+## group3: difference in mean between d and a
+```
+
+## re-check contrasts
+```{r}
+attributes(se_model$qr$qr)$contrasts
+```
+
+## Estimate robust model
+
+To combat distributional assumptions, keep contrasts coding
+
+```{r}
+# bootstrapping function
+boot_reg <- function(formula, data, indices){
+  d <- data[indices,]
+  fit <- lm(formula, data = d)
+  return(coef(fit))
+}
+
+# un-comment to check requisites of function call
+## check levels
+# values_count <- sapply(lapply(se_regression_data, unique), length)
+# values_count
+## check NAs
+# complete.cases(se_regression_data)
+
+# results
+# library(boot)
+boot_results <- boot(statistic = boot_reg,
+                    formula = post_se ~ group + pre_se,
+                    data = se_regression_data,
+                    R = 2000)
+boot_results
+
+# alternatively use
+# boot_results <- Boot(se_model, R = 2000)
+# boot_results
+
+# confidence intervals
+boot.ci(boot_results, type = "bca", index = 1) # intercept for bias corrected and accelerated coefficient
+boot.ci(boot_results, type = "bca", index = 2)
+boot.ci(boot_results, type = "bca", index = 3)
+boot.ci(boot_results, type = "bca", index = 4)
+boot.ci(boot_results, type = "bca", index = 5)
+```
+
+## Estimated marginal means / adjusted means
+
+### Calculate emmeans
+
+```{r}
+# mean value of a certain group on the DV after control of the covariate (has value 0 / centralized / medium pre self-efficacy)
+# library(emmeans)
+
+se_emmean <- summary(emmeans(se_model, "group"))
+se_emmean
+```
+
+### Plot emmeans
+
+```{r}
+# library(ggplot2)
+plot_se_emmeans <- ggplot(se_emmean, aes(x = group, y = emmean)) +
+  geom_bar(stat = "identity", width = 0.5, color = "white", fill = "#87CEEB") +
+  geom_errorbar(aes(x = group, ymin = lower.CL, ymax = upper.CL, width = 0.3, color = "#FF0000"), show.legend = F, size = 0.8) +
+  xlab("Group") +
+  ylim(0,7) +
+  ylab("Estimated marginal mean")
+plot_se_emmeans
+```
+
+## Check assumptions of multiple regression
+
+### Visual overview
+
+- correct model specification (linear?), homoscedasticity, outliers (row #)
+- normal distribution
+- homoscedasticity, outliers (even scattering?)
+- outliers of DV, influential data points (Cooks' distance)
+
+```{r}
+plot(se_model)
+```
+
+### Outliers and influential cases
+
+#### Compute diagnostics
+
+```{r}
+# outliers
+se_regression_data$standardized_residuals <- rstandard(se_model) # should be <|2|
+se_regression_data$studentized_residuals <- rstudent(se_model) # should be <|3|
+
+# influential cases
+se_regression_data$cooks_distance <- cooks.distance(se_model) # should be < 1
+se_regression_data$dfbeta <- dfbeta(se_model)
+se_regression_data$dffit <- dffits(se_model)
+se_regression_data$leverage <- hatvalues(se_model) # should be < 3 or 2 times as large as the average leverage (k+1/n)
+se_regression_data$covariance_ratios <- covratio(se_model) # within > 1 + [3(k + 1)/n] or > 1 + [3(k + 1)/n]
+
+# write table
+write.table(se_regression_data, "../results/Self-efficacy_model_with_case_diagnostics.dat", sep ="\t", row.names = F)
+```
+
+#### Identify cases
+
+```{r}
+# large residuals
+se_regression_data$large_residuals <- se_regression_data$standardized_residuals > 2 | se_regression_data$standardized_residuals < -2
+se_regression_data[se_regression_data$large_residuals,]
+# expect 95% of cases to have standardized residuals within about |2|
+# and 99% should lie within |2.5|
+
+# influential cases (only for cases for which large_residual is TRUE)
+se_regression_data[se_regression_data$large_residuals, c("cooks_distance", "leverage", "covariance_ratios")]
+```
+
+### Independence of residuals
+
+```{r}
+# Durbin-Watson Test: close value to 2 is good vs. <1 or >3 not good; non-significance is looked for
+dwt(se_model)
+```
+
+### Normal distribution of residuals
+
+```{r}
+# Lilliefors test: non-significance in ND
+# library(nortest)
+lillie.test(resid(se_model))
+
+# QQ plot with confidence intervals
+# library(car)
+qqPlot(se_model)
+
+# density pot of student residuals
+plot(density.default(x = se_regression_data$studentized_residuals))
+```
+
+### No Multicollinearity of predictors
+
+```{r}
+# variance inflation factor
+# library(car)
+vif(se_model) # high values (e.g. 10) are problematic
+mean(vif(se_model)) # average VIF > 1 regression may be biased
+# tolerance: close to 1 means predictors are un-correlated, <.2 problematic
+1/vif(se_model)
+```
+
+### Homoscedasticity
+
+```{r}
+# library(car)
+# Breusch Pagan Test / Cook-Weisberg Test: non-significance is homoscedastic
+ncvTest(se_model)
+```
