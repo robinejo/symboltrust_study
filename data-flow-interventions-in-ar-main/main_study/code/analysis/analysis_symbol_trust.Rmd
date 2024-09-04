@@ -19,8 +19,10 @@ knitr::opts_chunk$set(message=FALSE,
 ```
 
 # Dependencies
-
+Install these packages, if not already installed. Then load them.
 ```{r}
+library(psych) # for the function describeBy
+library(restriktor) # for the goric function
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
@@ -45,42 +47,48 @@ bedingung <- data_processed |>
 ```
 
 # Statistics
-#### Evaluate H1 vs its complement with GORIC: ANOVA Example ####
 
-# Load libraries. 
-# These contain functions such as 'goric' that will be used in this R code. 
-# Each time you re-open this R file you have to execute this step.
-
-## First, install the packages, if you have not done this already:
 ```{r}
-if (!require("psych")) install.packages("psych")
-if (!require("restriktor")) install.packages("restriktor")
+data_processed$bedingung <- factor(data_processed$bedingung)  
+
+# Inspect the data #
+head(data_processed) # Look at first (6) rows of the data
+
+# Compute Descriptive stats for each group(=Bedingung)
+descrstat_sys_trust <- describeBy(data_processed$mean_sys_trust, data_processed$bedingung, mat = TRUE)
+descrstat_symb_trust <- describeBy(data_processed$mean_symb_trust, data_processed$bedingung, mat = TRUE)
+
+## Compute the GORIC ##
+lm_fit_data_processed_sys_trust <-  lm(mean_sys_trust ~ bedingung-1, data = data_processed)
+lm_fit_data_processed_symb_trust <-  lm(mean_symb_trust ~ bedingung-1, data = data_processed)
+
+# Check the names used in model
+names(coef(lm_fit_data_processed_sys_trust))
+names(coef(lm_fit_data_processed_symb_trust))
+
+# Hypotheses 
+
+Hsys <- 'bedingung1 = bedingung2 = bedingung3 = bedingung4 = bedingung5'
+
+Hsymb <- 'bedingung1 < bedingung2 & bedingung1 < bedingung3 &  bedingung1 < bedingung4 &  bedingung1 < bedingung5'
+
+# Calculate GORIC values and weights
+
+set.seed(123)
+
+output_c_sys <- goric(lm_fit_data_processed_sys_trust, 
+                  hypotheses = list(H_theory_sys = Hsys), comparison = "complement")
+output_c_sys
+
+
+output_c_symb <- goric(lm_fit_data_processed_symb_trust, 
+                  hypotheses = list(H_theory_symb = Hsymb), comparison = "complement")
+output_c_symb
+
+
 ```
 
-## Then, load the packages:
-```{r}
-library(psych) # for the function describeBy
-library(restriktor) # for the goric function
-```
 
-# If you want to use restriktor from github:
-#if (!require("devtools")) install.packages("devtools")
-#library(devtools) 
-#install_github("LeonardV/restriktor")
-#library(restriktor) # for goric function
-
-################################################################################
-
-
-# Notably, it is only possible to load the data if you are using the correct 
-# working directory (with both your R script and data file). 
-# The command `getwd()` shows you your current working directory.
-#
-# You can change the working directory to the one you prefer using the function 
-# `setwd()` by specifying the correct location between parentheses. 
-# Alternatively, in Rstudio, you can use the "Session" tab (on top) or you can 
-# use the "Files"-pane (on top of probably the right lower box of Rstudio, this 
-# pane is located next to the panes for "Plots", "Packages", "Help", and "Viewer").
 
 
 ```{r}
