@@ -70,7 +70,8 @@ names(coef(lm_fit_data_processed_symb_trust))
 
 Hsys <- 'bedingung1 = bedingung2 = bedingung3 = bedingung4 = bedingung5'
 
-Hsymb <- 'bedingung1 < bedingung2 & bedingung1 < bedingung3 &  bedingung1 < bedingung4 &  bedingung1 < bedingung5'
+Hsymb <- 'bedingung1 < (bedingung2, bedingung3, bedingung4, bedingung5)'
+
 
 # Calculate GORIC values and weights
 
