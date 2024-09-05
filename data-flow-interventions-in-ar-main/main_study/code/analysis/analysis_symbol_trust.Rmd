@@ -89,10 +89,49 @@ output_c_symb
 
 ```
 
+```{r}
+# Calculate mean and SD for symbol_trust and system_trust grouped by 'bedingung'
+data_summary <- data_processed |>
+  group_by(bedingung) |>
+  summarise(
+    mean_symbol = mean(mean_symb_trust, na.rm = TRUE),  
+    mean_system = mean(mean_sys_trust, na.rm = TRUE),   
+    sd_symbol = sd(mean_symb_trust, na.rm = TRUE),      
+    sd_system = sd(mean_sys_trust, na.rm = TRUE))
 
+# Pivot data to long format for ggplot
+data_long <- data_summary |>
+  pivot_longer(
+    cols = c(mean_symbol, mean_system),
+    names_to = "variable",
+    values_to = "mean") |>
+  mutate(
+    sd = case_when(
+      variable == "mean_symbol" ~ sd_symbol,
+      variable == "mean_system" ~ sd_system))
+
+# Create the plot with ggplot
+ggplot_poster <- ggplot(data_long, aes(x = bedingung, y = mean, color = variable)) +
+  geom_point(size = 3, position = position_dodge(width = 0.3)) +  
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.2, 
+                position = position_dodge(width = 0.3)) +  
+  labs(
+    title = "Symbol Trust vs. System Trust",
+    x = "Group",
+    y = "Mean",
+    color = "Variable"
+  ) +
+  theme_minimal()  
+
+```
 
 
 ```{r}
-
+# Save the plot as a PDF
+ggsave("ggplot_system_symbol_trust_poster.pdf", ggplot_poster, width = 10, height = 5)
+ggsave("ggplot_system_symbol_trust_poster.png", ggplot_poster, width = 10, height = 5)
 ```
+
+
+
 
