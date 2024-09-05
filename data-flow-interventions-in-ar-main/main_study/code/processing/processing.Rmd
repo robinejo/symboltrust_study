@@ -36,7 +36,7 @@ data_after_exclusions <- data_raw |>
 ```
 
 ```{r}
-data_with_reversed_scores <- data_after_exclusions |>
+data_as_numeric <- data_after_exclusions |>
   mutate(sys_trust1 = as.numeric(sys_trust1),
        sys_trust2 = as.numeric(sys_trust2),
        sys_trust3 = as.numeric(sys_trust3),
@@ -53,19 +53,12 @@ data_with_reversed_scores <- data_after_exclusions |>
          symb_trust2 = as.numeric(symb_trust2),
          symb_trust3 = as.numeric(symb_trust3),
          symb_trust4 = as.numeric(symb_trust4),
-         symb_trust5 = as.numeric(symb_trust5)) |>
-  mutate(sys_trust2_reversed = 8 - sys_trust2,
-         sys_trust3_reversed = 8 - sys_trust3,
-         sys_trust4_reversed = 8 - sys_trust4,
-         sys_trust5_reversed = 8 - sys_trust5,
-         sys_trust7_reversed = 8 - sys_trust7,
-         symb_trust3_reversed = 7 - symb_trust3) |>
-  select(-sys_trust2, -sys_trust3, -sys_trust4, -sys_trust5, -sys_trust7, -symb_trust3)
+         symb_trust5 = as.numeric(symb_trust5)) 
 ```
 
 
 ```{r}
-data_processed_with_means <- data_with_reversed_scores |>
+data_processed_with_means <- data_as_numeric |>
   mutate(mean_sys_trust = rowMeans(across(starts_with("sys_trust")), na.rm = TRUE),
          mean_symb_trust = rowMeans(across(starts_with("symb_trust")), na.rm = TRUE)) 
 
