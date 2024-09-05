@@ -123,6 +123,7 @@ ggplot_poster <- ggplot(data_long, aes(x = bedingung, y = mean, color = variable
   ) +
   theme_minimal()  
 
+ggplot_poster
 ```
 
 
