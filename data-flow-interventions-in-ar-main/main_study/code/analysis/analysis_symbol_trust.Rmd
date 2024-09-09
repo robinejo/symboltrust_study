@@ -130,7 +130,7 @@ ggplot_poster
 ```{r}
 # Save the plot as a PDF
 ggsave("ggplot_system_symbol_trust_poster.pdf", ggplot_poster, width = 10, height = 5)
-ggsave("ggplot_system_symbol_trust_poster.png", ggplot_poster, width = 10, height = 5)
+ggsave("ggplot_system_symbol_trust_poster.png", ggplot_poster, width = 10, height = 5, bg = "white")
 ```
 
 
