@@ -72,7 +72,6 @@ Hsys <- 'bedingung1 = bedingung2 = bedingung3 = bedingung4 = bedingung5'
 
 Hsymb <- 'bedingung1 < (bedingung2, bedingung3, bedingung4, bedingung5)'
 
-
 # Calculate GORIC values and weights
 
 set.seed(123)
@@ -85,6 +84,7 @@ output_c_sys
 output_c_symb <- goric(lm_fit_data_processed_symb_trust, 
                   hypotheses = list(H_theory_symb = Hsymb), comparison = "complement")
 output_c_symb
+
 
 
 ```
@@ -109,8 +109,9 @@ data_long <- data_summary |>
     sd = case_when(
       variable == "mean_symbol" ~ sd_symbol,
       variable == "mean_system" ~ sd_system))
-
-# Create the plot with ggplot
+```
+```{r}
+# Create the plot with customized title, axis labels, axis lines, and legend
 ggplot_poster <- ggplot(data_long, aes(x = bedingung, y = mean, color = variable)) +
   geom_point(size = 3, position = position_dodge(width = 0.3)) +  
   geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.2, 
@@ -119,11 +120,22 @@ ggplot_poster <- ggplot(data_long, aes(x = bedingung, y = mean, color = variable
     title = "Symbol Trust vs. System Trust",
     x = "Group",
     y = "Mean",
-    color = "Variable"
+    color = "Variable"  # Legend title
   ) +
-  theme_minimal()  
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),            # Increase title size
+    axis.title.x = element_text(size = 18, face = "bold", margin = margin(t = 30)), # Increase gap for x-axis label
+    axis.title.y = element_text(size = 18, face = "bold", margin = margin(r = 10)), # Increase gap for y-axis label
+    axis.text = element_text(size = 18),                            # Optional: Increase axis text size
+    axis.line = element_line(size = 0.5),                           # Thicker axis lines
+    legend.title = element_text(size = 18, face = "bold"),                         # Increase legend title size
+    legend.text = element_text(size = 14)                           # Increase legend text size
+  )
 
-ggplot_poster
+# Display the plot
+print(ggplot_poster)
+
 ```
 
 

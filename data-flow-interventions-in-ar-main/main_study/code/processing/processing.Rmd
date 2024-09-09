@@ -17,8 +17,10 @@ library(dplyr)
 
 #load data
 ```{r}
-data_raw <- read_csv("../../data/raw/AR+Intervention+Main+Study_August+8,+2024_14.54.csv")
+data_raw <- read_csv("../../data/raw/data_raw.csv")
 ```
+
+
 ```{r}
 data_after_exclusions <- data_raw |>
   mutate(unique_id = row_number()) |>
