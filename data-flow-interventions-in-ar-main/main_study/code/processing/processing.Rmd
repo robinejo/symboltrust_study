@@ -1,6 +1,6 @@
 ---
-title: "Untitled"
-author: "complab"
+title: "AR Study - Trust: processing"
+author: "RJ, NB"
 date: "2024-08-21"
 output: html_document
 ---
@@ -34,7 +34,6 @@ data_after_exclusions <- data_raw |>
   filter(!str_detect(anmerkung_sonstiges_2_TEXT, regex("testlauf", ignore_case = TRUE))) |>
   filter(!str_detect(anmerkung_sonstiges_2_TEXT, regex("ausschliessen", ignore_case = TRUE))) |>
   filter(unique_id != 358) #anmerkug_nachfrage_2_TEXT. Weitergeklickt bei Fragebogen
-  
 ```
 
 ```{r}
@@ -74,18 +73,15 @@ data_processed <- data_processed_with_means |>
                             TRUE ~ "not indicated")) |>
    mutate(age = as.numeric(age))
 
-
-
 data_processed_with_means |>
   count(bedingung)
 ```
 
 ```{r}
+## un-commented to save data again
 # in case this dir doesn't exist, create it
-dir.create("../data/processed/")
-
-
-write_csv(data_processed, "../../data/processed/data_processed.csv")
+# dir.create("../../data/processed/")
+# write_csv(data_processed, "../../data/processed/data_processed.csv")
 ```
 
 

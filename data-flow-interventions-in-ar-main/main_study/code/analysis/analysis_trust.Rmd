@@ -1,7 +1,6 @@
 ---
-title: "Intervention in augmented reality"
-subtitle: "Analysis script for a preregistration"
-author: "Removed for anonymization"
+title: "AR Study - Trust: analysis"
+author: "RJ, NB"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
   html_document:
@@ -19,6 +18,7 @@ knitr::opts_chunk$set(message=FALSE,
 ```
 
 # Dependencies
+
 Install these packages, if not already installed. Then load them.
 ```{r}
 library(psych) # for the function describeBy
@@ -28,37 +28,37 @@ library(dplyr)
 library(ggplot2)
 ```
 
-# get data
+# Get data
+
 ```{r}
 data_processed <- read_csv("../../data/processed/data_processed.csv")
 ```
 
 # Demographics
+
 ```{r}
 gender <- data_processed |>
   count(gender)
 
 mean_age <- mean(data_processed$age, na.rm = TRUE)
 
-
 bedingung <- data_processed |>
   count(bedingung)
-
 ```
 
-# Statistics
+# Hypotheses
 
 ```{r}
 data_processed$bedingung <- factor(data_processed$bedingung)  
 
-# Inspect the data #
+# Inspect the data 
 head(data_processed) # Look at first (6) rows of the data
 
 # Compute Descriptive stats for each group(=Bedingung)
 descrstat_sys_trust <- describeBy(data_processed$mean_sys_trust, data_processed$bedingung, mat = TRUE)
 descrstat_symb_trust <- describeBy(data_processed$mean_symb_trust, data_processed$bedingung, mat = TRUE)
 
-## Compute the GORIC ##
+## Compute the GORIC 
 lm_fit_data_processed_sys_trust <-  lm(mean_sys_trust ~ bedingung-1, data = data_processed)
 lm_fit_data_processed_symb_trust <-  lm(mean_symb_trust ~ bedingung-1, data = data_processed)
 
@@ -67,28 +67,21 @@ names(coef(lm_fit_data_processed_sys_trust))
 names(coef(lm_fit_data_processed_symb_trust))
 
 # Hypotheses 
-
 Hsys <- 'bedingung1 = bedingung2 = bedingung3 = bedingung4 = bedingung5'
-
 Hsymb <- 'bedingung1 < (bedingung2, bedingung3, bedingung4, bedingung5)'
 
 # Calculate GORIC values and weights
-
 set.seed(123)
-
 output_c_sys <- goric(lm_fit_data_processed_sys_trust, 
                   hypotheses = list(H_theory_sys = Hsys), comparison = "complement")
 output_c_sys
 
-
 output_c_symb <- goric(lm_fit_data_processed_symb_trust, 
                   hypotheses = list(H_theory_symb = Hsymb), comparison = "complement")
 output_c_symb
-
-
-
 ```
 
+Means in long format
 ```{r}
 # Calculate mean and SD for symbol_trust and system_trust grouped by 'bedingung'
 data_summary <- data_processed |>
@@ -110,6 +103,8 @@ data_long <- data_summary |>
       variable == "mean_symbol" ~ sd_symbol,
       variable == "mean_system" ~ sd_system))
 ```
+
+Plot trust means by groups
 ```{r}
 # Create the plot with customized title, axis labels, axis lines, and legend
 ggplot_poster <- ggplot(data_long, aes(x = bedingung, y = mean, color = variable)) +
@@ -135,10 +130,9 @@ ggplot_poster <- ggplot(data_long, aes(x = bedingung, y = mean, color = variable
 
 # Display the plot
 print(ggplot_poster)
-
 ```
 
-
+Save plot
 ```{r}
 # Save the plot as a PDF
 ggsave("ggplot_system_symbol_trust_poster.pdf", ggplot_poster, width = 10, height = 5)
