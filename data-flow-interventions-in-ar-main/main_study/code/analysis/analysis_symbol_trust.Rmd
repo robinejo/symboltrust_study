@@ -110,6 +110,7 @@ data_long <- data_summary |>
       variable == "mean_symbol" ~ sd_symbol,
       variable == "mean_system" ~ sd_system))
 ```
+
 ```{r}
 # Create the plot with customized title, axis labels, axis lines, and legend
 ggplot_poster <- ggplot(data_long, aes(x = bedingung, y = mean, color = variable)) +
