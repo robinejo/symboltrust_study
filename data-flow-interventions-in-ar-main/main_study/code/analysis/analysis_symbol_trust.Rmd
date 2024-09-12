@@ -63,6 +63,8 @@ names(coef(lm_fit_data_processed_symb_trust))
 # Hypotheses 
 Hsys <- 'bedingung1 = bedingung2 = bedingung3 = bedingung4 = bedingung5'
 Hsymb <- 'bedingung1 < (bedingung2, bedingung3, bedingung4, bedingung5)'
+Hsymb_lower <- 'bedingung1 < (bedingung2, bedingung3, bedingung4, bedingung5)'
+Hsymb_higher <- 'bedingung1 > (bedingung2, bedingung3, bedingung4, bedingung5)'
 
 # Calculate GORIC values and weights
 set.seed(123)
@@ -74,6 +76,10 @@ output_c_sys
 output_c_symb <- goric(lm_fit_data_processed_symb_trust, 
                   hypotheses = list(H_theory_symb = Hsymb), comparison = "complement")
 output_c_symb
+
+output_c_sym_order <- goric(lm_fit_data_processed_symb_trust, 
+                  hypotheses = list(Hsymb_lower = Hsymb_lower, Hsymb_higher = Hsymb_higher)) #default unconstraint
+output_c_sym_order
 ```
 
 # Plotting results
